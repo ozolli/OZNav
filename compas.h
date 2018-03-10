@@ -2,29 +2,30 @@
 #include <Adafruit_FXAS21002C.h>
 #include <Madgwick.h>
 
-//unsigned int count = 0;
-
 // Create sensor instances.
 Adafruit_FXAS21002C gyro = Adafruit_FXAS21002C(0x0021002C);
 Adafruit_FXOS8700 accelmag = Adafruit_FXOS8700(0x8700A, 0x8700B);
 
-// Résultats obtenus avec OZNav_Calib_Mag et MotionCal.exe
+// Résultats obtenus avec OZNav_Calib_Mag et MotionCal.exe ou magneto12.exe
 
 // Offsets applied to raw x/y/z mag values
-float mag_offsets[3]            = { -81.18f, -146.24f, 77.11f };
+float mag_offsets[3]            = { -83.981975f, -143.862941f, 74.983069f };
 
 // Soft iron error compensation matrix
-float mag_softiron_matrix[3][3] = { {  0.980f, -0.022f,  0.006f },
-                                    { -0.022f,  0.993f,  0.005f },
-                                    {  0.006f,  0.005f,  1.029f } };
+float mag_softiron_matrix[3][3] = { { 0.835224f, 0.014973f, -0.020605f },
+                                    { 0.014973f, 0.832151f, -0.000116f },
+                                    { -0.020605f, -0.000116f, 0.838417f } };
 
-float mag_field_strength        = 40.04f;
+float mag_field_strength        = 47.128f;
 
-// Gaps 0.0%, Variance 0.9%, Wobble 0.6%, Fit Error 0.9%
-// dans son boitier avec RS-422 sans câble, bureau JP3
+// Avec Magneto 1.2
+// dans son boitier avec RS-422 et câble, bureau
 
 // Offsets applied to compensate for gyro zero-drift error for x/y/z
 float gyro_zero_offsets[3]      = { 0.0f, 0.0f, 0.0f };
+
+// Offsets X, Y et Z de l'accéléromètre entrés directement dans le FXOS8700
+int accel_offset[3]             = { -14, 20, -27 };
 
 Madgwick filter;
 
@@ -57,7 +58,7 @@ void imu_init() {
     send_poztx(msg);
   }
 
-  if(!accelmag.begin(ACCEL_RANGE_2G)) {
+  if(!accelmag.begin(ACCEL_RANGE_2G, accel_offset[0], accel_offset[1], accel_offset[2])) {
     char msg[] = "Défaut compas";
     send_poztx(msg);
   }
@@ -74,10 +75,6 @@ void imu_init() {
 }
 
 void imu_query(Boat& mus) {
-  // A appeler avec delay(10) dans loop() (à affiner)
-  // Cela permet de faire fonctionner le filtre de Madgwick correctement
-
-  //count++;
 
   sensors_event_t gyro_event;
   sensors_event_t accel_event;
@@ -119,18 +116,17 @@ void imu_query(Boat& mus) {
   // angles, but Euler angles are used here since they are easier to
   // understand looking at the raw values. See the ble fusion sketch for
   // and example of working with quaternion data.
+  // Pas de gimbal lock possible en bateau car gite et tangage < 90°
 
   // Calcul gite
   mus.imu.d_roll = filter.getRoll();
   mus.imu.d_roll += mus.cal.roll;
   mus.imu.r_roll = mus.imu.d_roll * DEG_TO_RAD;
-  //Serial.print(F("roll :\t")); Serial.print(mus.imu.d_roll);
 
   // Calcul tangage
   mus.imu.d_pitch = filter.getPitch();
   mus.imu.d_pitch += mus.cal.pitch;
   mus.imu.r_pitch = mus.imu.d_pitch * DEG_TO_RAD;
-  //Serial.print(F("\tpitch :\t")); Serial.print(mus.imu.d_pitch);
 
   // Calcul cap
   mus.imu.d_hdg = 180.0f - filter.getYaw();
@@ -142,6 +138,4 @@ void imu_query(Boat& mus) {
   if (mus.imu.d_hdt < 0.0f) mus.imu.d_hdt += 360.0f;
   else if (mus.imu.d_hdt >= 360.0f) mus.imu.d_hdt -= 360.0f;
   mus.imu.r_hdt = mus.imu.d_hdt * DEG_TO_RAD;
-  //Serial.print(F("\thdg :\t")); Serial.println(mus.imu.d_hdg);
-  //if (count == 3000) Serial.println(F("################## Tick 3000 ###################"));
 }
