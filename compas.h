@@ -67,10 +67,7 @@ void imu_init() {
   // Based on a Bluefruit M0 Feather ... rate should be adjuted for other MCUs
   filter.begin(50.0f);
 
-  // Coef d'atténuation du filtre à affiner.
-  // Voir https://forums.adafruit.com/viewtopic.php?f=19&t=126734&p=632174#p632187
-  // Attention aux mises à jour de Adafruit_AHRS car Madgwick.h est modifié pour ajouter setBeta !
-  // Sauvegarde du fichier modifié dans C:\Users\Olivier\Documents\Arduino\Muscadet
+  // Coef d'atténuation du filtre.
   filter.setBeta(0.5f);
 }
 
@@ -99,13 +96,6 @@ void imu_query(Boat& mus) {
   float gy = gyro_event.gyro.y + gyro_zero_offsets[1];
   float gz = gyro_event.gyro.z + gyro_zero_offsets[2];
 
-  // The filter library expects gyro data in degrees/s, but adafruit sensor
-  // uses rad/s so we need to convert them first (or adapt the filter lib
-  // where they are being converted)
-  gx *= RAD_TO_DEG;
-  gy *= RAD_TO_DEG;
-  gz *= RAD_TO_DEG;
-
   // Update the filter
   filter.update(gx, gy, gz,
                 accel_event.acceleration.x, accel_event.acceleration.y, accel_event.acceleration.z,
@@ -129,7 +119,7 @@ void imu_query(Boat& mus) {
   mus.imu.r_pitch = mus.imu.d_pitch * DEG_TO_RAD;
 
   // Calcul cap
-  mus.imu.d_hdg = 180.0f - filter.getYaw();
+  mus.imu.d_hdg = -(filter.getYaw());
   mus.imu.d_hdg  += mus.cal.hdg;
   if (mus.imu.d_hdg < 0.0f) mus.imu.d_hdg += 360.0f;
   else if (mus.imu.d_hdg >= 360.0f) mus.imu.d_hdg -= 360.0f;
