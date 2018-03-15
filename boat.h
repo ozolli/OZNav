@@ -1,3 +1,6 @@
+#ifndef boat_h
+#define boat_h
+
 struct Cal {
   // Données de calibrage en eeprom
   double mag = -1.0;    // Déclinaison magnétique en degrés décimaux, négatif pour une déclinaison W
@@ -8,12 +11,11 @@ struct Cal {
   int baro = -110;    // Pression atmosphérique en Pa (hPa*100)
   
   // Coefficients d'amortissement du lissage exponentiel simple
-
-  // Lissage environ 10 secondes
-  const double alpha_sogcog = 0.2;
-  
-  // Lissage environ 30 secondes
-  const double alpha_setdrift = 0.07;
+  const double alpha_sogcog = 0.2; // Lissage environ 10 secondes
+  const double alpha_setdrift = 0.07; // Lissage environ 30 secondes
+  const double alpha_roll = 0.06;
+  const double alpha_pitch = 0.06;
+  const double alpha_hdg = 0.03;
 };
 
 struct IMU {
@@ -77,3 +79,5 @@ struct Boat {
   Speedo speedo;
   GPS gps;
 };
+#endif
+

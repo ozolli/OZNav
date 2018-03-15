@@ -55,7 +55,7 @@ char nmeaLog[200] = "";
 
 // Compteurs de temps
 // On démarre les compteurs 1Hz en décalé pour fluidifier le calcul et la sortie
-elapsedMillis tick_50 = 0;
+elapsedMillis tick_100 = 0;
 elapsedMillis tick_5 = 0;
 elapsedMillis tick_1_200 = 200;
 //elapsedMillis tick_1_400 = 400; Bloque le croquis... :(
@@ -67,6 +67,7 @@ elapsedMillis une_min = 0;
 elapsedMillis timeVWR = 0;
 elapsedMillis timeVHW = 0;
 elapsedMillis timeGPS = 0;
+FPB Fcog, Fset;
 
 // Données du bateau et de son environnement. Voir boat.h pour la structure
 Boat mus;
@@ -346,7 +347,7 @@ void set_drift() {
   //Serial.print(F("raw_cog :\t")); Serial.print(raw_cog);
   
   raw_cog *= DEG_TO_RAD;
-  mus.gps.r_cog = filtre_cog(raw_cog, mus.cal.alpha_sogcog);
+  mus.gps.r_cog = filtre(Fcog, raw_cog, mus.cal.alpha_sogcog);
   if (mus.gps.r_cog < 0.0f) mus.gps.r_cog += M_PI * 2.0f;
   else if (mus.gps.r_cog >= M_PI * 2.0f) mus.gps.r_cog -= M_PI * 2.0f;
 
@@ -370,7 +371,7 @@ void set_drift() {
 
     // Set
     //Serial.print(F("raw_set :\t")); Serial.print(atan2(vlong, vlat) * RAD_TO_DEG);
-    mus.gps.r_set = filtre_set(vlong, vlat, mus.cal.alpha_setdrift);
+    mus.gps.r_set = filtre(Fset, vlong, vlat, mus.cal.alpha_setdrift);
 
     if (mus.gps.r_set < 0.0f) mus.gps.r_set += M_PI * 2.0f;
     else if (mus.gps.r_set >= M_PI * 2.0f) mus.gps.r_set -= M_PI * 2.0f;
@@ -489,9 +490,9 @@ void loop() {
     hdg_heel_pitch();
   }
 
-  // 50Hz : IMU
-  if (tick_50 > 20) {
-    tick_50 = tick_50 - 20;
+  // 100Hz : IMU
+  if (tick_100 > 10) {
+    tick_100 = tick_100 - 10;
     imu_query(mus);
   }
 

@@ -1,10 +1,9 @@
 #include <Adafruit_FXOS8700.h>
-#include <Adafruit_FXAS21002C.h>
-#include <Madgwick.h>
+#include "filtre.h"
 
-// Create sensor instances.
-Adafruit_FXAS21002C gyro = Adafruit_FXAS21002C(0x0021002C);
 Adafruit_FXOS8700 accelmag = Adafruit_FXOS8700(0x8700A, 0x8700B);
+
+FPB Froll, Fpitch, Fhdg;
 
 // Résultats obtenus avec OZNav_Calib_Mag et MotionCal.exe ou magneto12.exe
 
@@ -12,11 +11,11 @@ Adafruit_FXOS8700 accelmag = Adafruit_FXOS8700(0x8700A, 0x8700B);
 float mag_offsets[3]            = { -83.981975f, -143.862941f, 74.983069f };
 
 // Soft iron error compensation matrix
-float mag_softiron_matrix[3][3] = { { 0.835224f, 0.014973f, -0.020605f },
-                                    { 0.014973f, 0.832151f, -0.000116f },
-                                    { -0.020605f, -0.000116f, 0.838417f } };
+float mag_softiron_matrix[3][3] = { { 1.198396f, -0.021559f, 0.029449f },
+                                    { -0.021559f, 1.202093f, -0.000364f },
+                                    { 0.029449f, -0.000364f, 1.193448f } };
 
-float mag_field_strength        = 47.128f;
+// float mag_field_strength        = 47.128f;
 
 // Avec Magneto 1.2
 // dans son boitier avec RS-422 et câble, bureau
@@ -27,7 +26,21 @@ float gyro_zero_offsets[3]      = { 0.0f, 0.0f, 0.0f };
 // Offsets X, Y et Z de l'accéléromètre entrés directement dans le FXOS8700
 int accel_offset[3]             = { -14, 20, -27 };
 
-Madgwick filter;
+// Coefficients de l'équation de déviation du compas (CurveExpert)
+/*  12032018.cxp
+    a = -2.126020994861641E+00
+    b = 1.991367698456988E+00
+    c = -1.454724778794229E+00
+    d = 5.077575902172844E-01
+    e = 2.967244547636485E+00
+  Standard Error          : 4.827243315951540E-01
+  Correlation Coefficient : 9.860858930771847E-01
+*/
+double A = -2.126020;
+double B =  1.991367;
+double C = -1.454724;
+double D =  0.507757;
+double E =  2.967244;
 
 void send_poztx(char * s) {
   // Calcul du checksum nmea et envoi phrase vers port série RS422.
@@ -51,76 +64,70 @@ void send_poztx(char * s) {
 }
 
 void imu_init() {
-
-  // Initialize the sensors.
-  if(!gyro.begin(GYRO_RANGE_250DPS)) {
-    char msg[] = "Défaut gyroscope";
-    send_poztx(msg);
-  }
-
   if(!accelmag.begin(ACCEL_RANGE_2G, accel_offset[0], accel_offset[1], accel_offset[2])) {
     char msg[] = "Défaut compas";
     send_poztx(msg);
   }
-
-  // Filter expects 70 samples per second
-  // Based on a Bluefruit M0 Feather ... rate should be adjuted for other MCUs
-  filter.begin(50.0f);
-
-  // Coef d'atténuation du filtre.
-  filter.setBeta(0.5f);
 }
 
-void imu_query(Boat& mus) {
+int count = 0;
 
-  sensors_event_t gyro_event;
-  sensors_event_t accel_event;
-  sensors_event_t mag_event;
+void imu_query(Boat& mus) {
+count++;
+  //sensors_event_t gyro_event;
+  sensors_event_t aevt;
+  sensors_event_t mevt;
 
   // Get new data samples
-  gyro.getEvent(&gyro_event);
-  accelmag.getEvent(&accel_event, &mag_event);
+  accelmag.getEvent(&aevt, &mevt);
 
   // Apply mag offset compensation (base values in uTesla)
-  float x = mag_event.magnetic.x - mag_offsets[0];
-  float y = mag_event.magnetic.y - mag_offsets[1];
-  float z = mag_event.magnetic.z - mag_offsets[2];
+  float x = mevt.magnetic.x - mag_offsets[0];
+  float y = mevt.magnetic.y - mag_offsets[1];
+  float z = mevt.magnetic.z - mag_offsets[2];
 
   // Apply mag soft iron error compensation
   float mx = x * mag_softiron_matrix[0][0] + y * mag_softiron_matrix[0][1] + z * mag_softiron_matrix[0][2];
   float my = x * mag_softiron_matrix[1][0] + y * mag_softiron_matrix[1][1] + z * mag_softiron_matrix[1][2];
   float mz = x * mag_softiron_matrix[2][0] + y * mag_softiron_matrix[2][1] + z * mag_softiron_matrix[2][2];
 
-  // Apply gyro zero-rate error compensation
-  float gx = gyro_event.gyro.x + gyro_zero_offsets[0];
-  float gy = gyro_event.gyro.y + gyro_zero_offsets[1];
-  float gz = gyro_event.gyro.z + gyro_zero_offsets[2];
-
-  // Update the filter
-  filter.update(gx, gy, gz,
-                accel_event.acceleration.x, accel_event.acceleration.y, accel_event.acceleration.z,
-                mx, my, mz);
-
-  // Print the orientation filter output
-  // Note: To avoid gimbal lock you should read quaternions not Euler
-  // angles, but Euler angles are used here since they are easier to
-  // understand looking at the raw values. See the ble fusion sketch for
-  // and example of working with quaternion data.
-  // Pas de gimbal lock possible en bateau car gite et tangage < 90°
-
   // Calcul gite
-  mus.imu.d_roll = filter.getRoll();
+  mus.imu.r_roll = (float) atan2(-aevt.acceleration.y, aevt.acceleration.z);
+  mus.imu.r_roll = filtre(Froll, mus.imu.r_roll, mus.cal.alpha_roll);
+  mus.imu.d_roll = mus.imu.r_roll * RAD_TO_DEG;
   mus.imu.d_roll += mus.cal.roll;
-  mus.imu.r_roll = mus.imu.d_roll * DEG_TO_RAD;
 
   // Calcul tangage
-  mus.imu.d_pitch = filter.getPitch();
+  mus.imu.r_pitch = (float) atan2(-aevt.acceleration.x, sqrt(aevt.acceleration.y*aevt.acceleration.y
+                          + aevt.acceleration.z*aevt.acceleration.z));
+  mus.imu.r_pitch = filtre(Fpitch, mus.imu.r_pitch, mus.cal.alpha_pitch);
+  mus.imu.d_pitch = mus.imu.r_pitch * RAD_TO_DEG;
   mus.imu.d_pitch += mus.cal.pitch;
-  mus.imu.r_pitch = mus.imu.d_pitch * DEG_TO_RAD;
 
   // Calcul cap
-  mus.imu.d_hdg = -(filter.getYaw());
-  mus.imu.d_hdg  += mus.cal.hdg;
+  float norm = sqrt(aevt.acceleration.x * aevt.acceleration.x
+                    + aevt.acceleration.y * aevt.acceleration.y
+                    + aevt.acceleration.z * aevt.acceleration.z);
+  float pitchA = asin(-aevt.acceleration.x / norm);
+  float rollA = asin(-aevt.acceleration.y / cos(pitchA) / norm);
+  norm = sqrt(mx * mx + my * my + mz * mz);
+  mx = mx / norm;
+  my = -1 * my / norm;
+  mz = mz / norm;
+  
+  // Tilt-compensation
+  float Mx = mx * cos(pitchA) + mz * sin(pitchA);
+  float My = mx * sin(rollA) * sin(pitchA) + my * cos(rollA) - mz * sin(rollA) * cos(pitchA);
+  mus.imu.r_hdg = atan2(-My, Mx);
+  mus.imu.r_hdg = filtre(Fhdg, mus.imu.r_hdg, mus.cal.alpha_hdg);
+
+  // Courbe de déviation
+  mus.imu.d_hdg = mus.imu.r_hdg * RAD_TO_DEG;
+  mus.imu.d_hdg -= A + B * sin(mus.imu.r_hdg) + C * cos(mus.imu.r_hdg) + D * sin(2*mus.imu.r_hdg) + E * cos(2*mus.imu.r_hdg);
+
+  // Calage du zéro
+  mus.imu.d_hdg += mus.cal.hdg;
+
   if (mus.imu.d_hdg < 0.0f) mus.imu.d_hdg += 360.0f;
   else if (mus.imu.d_hdg >= 360.0f) mus.imu.d_hdg -= 360.0f;
   mus.imu.r_hdg = mus.imu.d_hdg * DEG_TO_RAD;
@@ -128,4 +135,5 @@ void imu_query(Boat& mus) {
   if (mus.imu.d_hdt < 0.0f) mus.imu.d_hdt += 360.0f;
   else if (mus.imu.d_hdt >= 360.0f) mus.imu.d_hdt -= 360.0f;
   mus.imu.r_hdt = mus.imu.d_hdt * DEG_TO_RAD;
+  if (count == 6000) Serial.println("######################### 1 mn #######################");
 }

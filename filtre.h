@@ -3,16 +3,24 @@
 // On transforme d'abord l'angle en vecteur pour éliminer
 // le problème du passage 360° (2 Pi radians) > 0°
 
-double x_cog, y_cog, x_set, y_set = 0.0f;
+#ifndef filtre_h
+#define filtre_h
 
-double filtre_cog(double angle, double alpha) {
-  x_cog = sin(angle) * alpha + x_cog * (1.0f - alpha);
-  y_cog = cos(angle) * alpha + y_cog * (1.0f - alpha);
-  return atan2(x_cog, y_cog);
+struct FPB {
+  double x = 0.0f;
+  double y = 0.0f;
+};
+
+double filtre(FPB& valeur, double angle, double alpha) {
+  valeur.x = sin(angle) * alpha + valeur.x * (1.0f - alpha);
+  valeur.y = cos(angle) * alpha + valeur.y * (1.0f - alpha);
+  return atan2(valeur.x, valeur.y);
 }
 
-double filtre_set(double x, double y, double alpha) {
-  x_set = x * alpha + x_set * (1.0f - alpha);
-  y_set = y * alpha + y_set * (1.0f - alpha);
-  return atan2(x_set, y_set);
+double filtre(FPB& valeur, double x, double y, double alpha) {
+  valeur.x = x * alpha + valeur.x * (1.0f - alpha);
+  valeur.x = y * alpha + valeur.x * (1.0f - alpha);
+  return atan2(valeur.x, valeur.x);
 }
+#endif
+
