@@ -23,8 +23,9 @@
  * POZPE
  * POZTX
  *
- * Le magnétomètre est calibré avec OZNav_Calib_Mag
  * L'accéléromètre est calibré avec OZNav_Calib_Accel
+ * Le magnétomètre est calibré en 3D avec OZNav_Calib_Mag
+ * puis en 2D in-situ (dans le bateau) avec OZNav_Calib_Dev
  *
  * Le Miniplex doit rediriger IIVWR et IIVHW du Tacktick vers l'Arduino pour calculer
  * le vent apparent corrigé de la gite, le vent réel corrigé et le courant.
