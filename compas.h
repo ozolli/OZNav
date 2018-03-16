@@ -8,17 +8,17 @@ FPB Froll, Fpitch, Fhdg;
 // Résultats obtenus avec OZNav_Calib_Mag et MotionCal.exe ou magneto12.exe
 
 // Offsets applied to raw x/y/z mag values
-float mag_offsets[3]            = { -83.981975f, -143.862941f, 74.983069f };
+float mag_offsets[3]            = { -85.952304f, -144.312971f, 76.945700f };
 
 // Soft iron error compensation matrix
-float mag_softiron_matrix[3][3] = { { 1.198396f, -0.021559f, 0.029449f },
-                                    { -0.021559f, 1.202093f, -0.000364f },
-                                    { 0.029449f, -0.000364f, 1.193448f } };
+float mag_softiron_matrix[3][3] = { { 1.110872f, -0.034282f, -0.001749f },
+                                    { -0.034282f, 1.121473f, 0.006872f },
+                                    { -0.001749f, 0.006872f, 1.160688f } };
 
 // float mag_field_strength        = 47.128f;
 
 // Avec Magneto 1.2
-// dans son boitier avec RS-422 et câble, bureau
+// dans son boitier avec RS-422 et câble, maison
 
 // Offsets applied to compensate for gyro zero-drift error for x/y/z
 float gyro_zero_offsets[3]      = { 0.0f, 0.0f, 0.0f };
@@ -27,20 +27,20 @@ float gyro_zero_offsets[3]      = { 0.0f, 0.0f, 0.0f };
 int accel_offset[3]             = { -14, 20, -27 };
 
 // Coefficients de l'équation de déviation du compas (CurveExpert)
-/*  12032018.cxp
-    a = -2.126020994861641E+00
-    b = 1.991367698456988E+00
-    c = -1.454724778794229E+00
-    d = 5.077575902172844E-01
-    e = 2.967244547636485E+00
-  Standard Error          : 4.827243315951540E-01
-  Correlation Coefficient : 9.860858930771847E-01
+/*  15032018.cxp
+    a = -2.822200891339419E+00
+    b = -2.671455888028069E-01
+    c = 2.182855608749967E+00
+    d = -1.288112431251045E-01
+    e = 1.193057725181622E-01
+  Standard Error          : 7.535990506554416E-01
+  Correlation Coefficient : 9.072402092315716E-01
 */
-double A = -2.126020;
-double B =  1.991367;
-double C = -1.454724;
-double D =  0.507757;
-double E =  2.967244;
+double A = -2.822200;
+double B = -0.267145;
+double C =  2.182855;
+double D = -0.128811;
+double E =  0.119305;
 
 void send_poztx(char * s) {
   // Calcul du checksum nmea et envoi phrase vers port série RS422.
@@ -119,7 +119,7 @@ count++;
   float Mx = mx * cos(pitchA) + mz * sin(pitchA);
   float My = mx * sin(rollA) * sin(pitchA) + my * cos(rollA) - mz * sin(rollA) * cos(pitchA);
   mus.imu.r_hdg = atan2(-My, Mx);
-  mus.imu.r_hdg = filtre(Fhdg, mus.imu.r_hdg, mus.cal.alpha_hdg);
+  if (!isnan(mus.imu.r_hdg)) mus.imu.r_hdg = filtre(Fhdg, mus.imu.r_hdg, mus.cal.alpha_hdg);
 
   // Courbe de déviation
   mus.imu.d_hdg = mus.imu.r_hdg * RAD_TO_DEG;

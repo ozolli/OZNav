@@ -10,12 +10,15 @@ struct Cal {
   int leeway = 8; // Leeway en degrés
   int baro = -110;    // Pression atmosphérique en Pa (hPa*100)
   
-  // Coefficients d'amortissement du lissage exponentiel simple
-  const double alpha_sogcog = 0.2; // Lissage environ 10 secondes
-  const double alpha_setdrift = 0.07; // Lissage environ 30 secondes
-  const double alpha_roll = 0.06;
-  const double alpha_pitch = 0.06;
-  const double alpha_hdg = 0.03;
+  // Coefficients d'amortissement du lissage exponentiel simple (filtre.h)
+  // En théorie N (échantillons) = 1 / alpha * 2 - 1 et durée = N / F
+  // En pratique on a environ 2° de retard pour cette durée et retard
+  // négligeable à durée * 2 sur des variations rapides.
+  const double alpha_sogcog = 0.2; // 10 secondes @ 1Hz
+  const double alpha_setdrift = 0.07; // 30 secondes @ 1Hz
+  const double alpha_roll = 0.02; // 1 seconde @ 100Hz
+  const double alpha_pitch = 0.02;
+  const double alpha_hdg = 0.013; // 1.5 seconde @ 100Hz
 };
 
 struct IMU {
