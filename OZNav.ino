@@ -99,7 +99,11 @@ void setup(void) {
   nmea.aws.begin(tgps, "IIVWR", 3);
   nmea.hdg.begin(tgps, "IIVHW", 3);
   nmea.bsp.begin(tgps, "IIVHW", 5);
-  Serial.begin(38400);
+
+  #ifdef DEBUG
+    Serial.begin(38400);
+  #endif
+
   RS422.begin(38400);
   sdcard_init();
   imu_init();
@@ -377,7 +381,6 @@ void set_drift() {
     if (mus.gps.r_set < 0.0f) mus.gps.r_set += M_PI * 2.0f;
     else if (mus.gps.r_set >= M_PI * 2.0f) mus.gps.r_set -= M_PI * 2.0f;
     mus.gps.d_set = mus.gps.r_set * RAD_TO_DEG;
-    //Serial.print(F("\tmus.gps.d_set :\t")); Serial.println(mus.gps.d_set);
 
     int setr = (int)round(mus.gps.d_set);
     if (setr == 360) setr = 0;
