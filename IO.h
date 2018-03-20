@@ -1,3 +1,6 @@
+#ifndef IO_h
+#define IO_h
+
 #include <TimeLib.h>
 #include <SdFat.h>
 
@@ -9,10 +12,6 @@ char logfileName[21] = "";
 unsigned long offset = 0;
 boolean logfileNameSet = false;
 boolean sdCardReady = false;
-
-void sdcard_init() {
-  if (SD.begin(4, SD_SCK_MHZ(50))) sdCardReady = true;
-}
 
 // Implémentation dtostrf pour Cortex M0
 #if 0
@@ -112,10 +111,33 @@ char *add_checksum(char *nmea) {
 void send_nmea(char *nmea) {
   // Envoi phrase vers port série RS485.
 
-//  RS422.write(nmea);
-//  RS422.println();
+#ifdef DEBUG
   Serial.write(nmea);
   Serial.println();
+#else
+  RS422.write(nmea);
+  RS422.println();
+#endif
+}
+
+void send_poztx(char *s) {
+  // Calcul du checksum nmea et envoi phrase vers port série RS422.
+  // La phrase peut également être lue sur le pin TX en TTL.
+  
+  char nmeaOut[80];
+  sprintf(nmeaOut, "$POZTX,%s", s);
+  //strcpy(temps, s);
+  //strcat(nmeaOut, temps);
+  send_nmea(add_checksum(nmeaOut));
+}
+
+void sdcard_init() {
+  if (SD.begin(4, SD_SCK_MHZ(50))) {
+    sdCardReady = true;
+  } else {
+    char msg[] = "Carte MicroSD absente ou défectueuse";
+    send_poztx(msg);
+  }
 }
 
 void dateTime(uint16_t* date, uint16_t* time) {
@@ -206,3 +228,5 @@ int readGPS(int readch, char *buffer, int len) {
   // No end of line has been found, so return -1.
   return -1;
 }
+#endif
+

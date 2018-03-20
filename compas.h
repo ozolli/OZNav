@@ -1,5 +1,6 @@
 #include <Adafruit_FXOS8700.h>
 #include "filtre.h"
+#include "IO.h"
 
 Adafruit_FXOS8700 accelmag = Adafruit_FXOS8700(0x8700A, 0x8700B);
 
@@ -42,27 +43,6 @@ double C =  2.182855;
 double D = -0.128811;
 double E =  0.119305;
 
-void send_poztx(char * s) {
-  // Calcul du checksum nmea et envoi phrase vers port série RS422.
-  // La phrase peut également être lue sur le pin TX en TTL.
-  
-  char nmeaOut[80];
-  char temps[70];
-
-  sprintf(nmeaOut, "$POZTX,");
-  strcpy(temps, s);
-  strcat(nmeaOut, temps);
-  byte checksum = 0;
-  char csum[4];
-  for (byte i = 1; i < strlen(nmeaOut); i++ ) {
-    checksum ^= nmeaOut[i];
-  }
-  sprintf(csum, "*%02X", checksum);
-  Serial.write(nmeaOut);
-  Serial.write(csum);
-  Serial.println();
-}
-
 void imu_init() {
   if(!accelmag.begin(ACCEL_RANGE_2G, accel_offset[0], accel_offset[1], accel_offset[2])) {
     char msg[] = "Défaut compas";
@@ -70,10 +50,16 @@ void imu_init() {
   }
 }
 
-int count = 0;
+#ifdef DEBUG
+  int count = 0;
+#endif
 
 void imu_query(Boat& mus) {
-count++;
+
+#ifdef DEBUG
+  count++;
+#endif
+
   //sensors_event_t gyro_event;
   sensors_event_t aevt;
   sensors_event_t mevt;
@@ -135,5 +121,7 @@ count++;
   if (mus.imu.d_hdt < 0.0f) mus.imu.d_hdt += 360.0f;
   else if (mus.imu.d_hdt >= 360.0f) mus.imu.d_hdt -= 360.0f;
   mus.imu.r_hdt = mus.imu.d_hdt * DEG_TO_RAD;
+#ifdef DEBUG
   if (count == 6000) Serial.println("######################### 1 mn #######################");
+#endif
 }

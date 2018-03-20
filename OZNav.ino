@@ -37,6 +37,15 @@ $IIVHW,,,63,M,05.8,N,,*5C
  // La colorisation syntaxique est dans
  // C:\Users\Olivier\Documents\Arduino\libraries\elapsedMillis-master\keywords.txt
 
+// A commenter pour sortir sur RS422
+#define DEBUG
+
+// A commenter quand Tacktick connecté
+#define NO_TACKTICK
+
+// A commenter quand GPS connecté
+//#define NO_GPS
+
 #pragma GCC optimize ("-O1")
 
 #include <TinyGPS++.h>
@@ -55,9 +64,10 @@ char nmeaGPS[150] = "";
 char nmeaLog[200] = "";
 
 // Compteurs de temps
-// On démarre les compteurs 1Hz en décalé pour fluidifier le calcul et la sortie
+// On démarre 5 compteurs 1Hz en décalé pour fluidifier le calcul et la sortie
+// Le compteur 5Hz est intercalé entre les compteurs 1Hz
 elapsedMillis tick_100 = 0;
-elapsedMillis tick_5 = 0;
+elapsedMillis tick_5 = 100;
 elapsedMillis tick_1_200 = 200;
 elapsedMillis tick_1_400 = 400;
 elapsedMillis tick_1_600 = 600;
@@ -172,11 +182,12 @@ void aw() {
   // Traite $IIVWR
 
   // AWA
-  mus.wind.d_awa = atof(nmea.awa.value());
-  /////////////////////////////////////////////////////////////////////
-  mus.wind.d_awa = 148.0f;
-  /////////////////////////////////////////////////////////////////////
-  
+  #ifdef NO_TACKTICK
+    mus.wind.d_awa = 148.0f;
+  #else
+    mus.wind.d_awa = atof(nmea.awa.value());
+  #endif
+
   if (mus.wind.d_awa == 90.0f) mus.wind.d_awa += 0.001f;
   mus.wind.r_awa = mus.wind.d_awa * DEG_TO_RAD;
   mus.wind.r_awa_cor = atan(tan(mus.wind.r_awa) / cos(mus.imu.r_roll));
@@ -185,10 +196,11 @@ void aw() {
   } else if (mus.wind.r_awa < -M_PI / 2.0f) mus.wind.r_awa_cor -= M_PI;
 
   // Sens du vent : Left ou Right
-  mus.wind.LR = nmea.LR.value()[0];
-  /////////////////////////////////////////////////////////////////////
-  mus.wind.LR = 'R';
-  /////////////////////////////////////////////////////////////////////
+  #ifdef NO_TACKTICK
+    mus.wind.LR = 'R';
+  #else
+    mus.wind.LR = nmea.LR.value()[0];
+  #endif
   
   // AWA_REL
   if (mus.wind.LR == 'L') mus.wind.d_awa_rel = 360.0 - mus.wind.r_awa_cor * RAD_TO_DEG;
@@ -199,10 +211,11 @@ void aw() {
   else if (mus.wind.LR == 'R') mus.wind.r_awd = mus.imu.r_hdg + mus.wind.r_awa_cor;
 
   // AWS
-  mus.wind.aws = atof(nmea.aws.value());
-  /////////////////////////////////////////////////////////////////////
-  mus.wind.aws = 14.0f;
-  /////////////////////////////////////////////////////////////////////
+  #ifdef NO_TACKTICK
+    mus.wind.aws = 14.0f;
+  #else
+    mus.wind.aws = atof(nmea.aws.value());
+  #endif
   
   sprintf(nmeaOut, "$IIVWR,%i,%c,%s,N,,,,", (int)round(mus.wind.r_awa_cor * RAD_TO_DEG),
                                             mus.wind.LR, d2s(mus.wind.aws, 4, 2));
@@ -225,37 +238,33 @@ void bsp_tw_vmg() {
   // HDM non traité pour l'instant (nmea.hdg.value())
  
   // BSP
-  mus.speedo.bsp = atof(nmea.bsp.value());
-  /////////////////////////////////////////////////////////////////////
-  mus.speedo.bsp = 6.32f;
-  /////////////////////////////////////////////////////////////////////
-  
+  #ifdef NO_TACKTICK
+    mus.speedo.bsp = 6.32f;
+  #else
+    mus.speedo.bsp = atof(nmea.bsp.value());
+  #endif
+
   if (isnan(mus.speedo.bsp) || mus.speedo.bsp == 0.0) mus.speedo.bsp = 0.001;
 
   if (mus.wind.hasVWR) {
 
     // Leeway linéaire de 0° pour AWA 180 jusqu'a mus.cal.leeway pour AWA 30
     // Correction AWS (dérive majorée) et BSP (dérive minorée)
-    // A essayer avec mus.cal.leeway = 10
+    // A essayer avec mus.cal.leeway = 8
     double bsp = mus.speedo.bsp;
     if (bsp < 0.5f) bsp = 0.5f;
     double leeway = (M_PI - mus.wind.r_awa_cor) * mus.cal.leeway / 2.618f;
     leeway = leeway * sqrt(mus.wind.aws) / 4.0f;
     leeway = leeway / (sqrt(bsp) / 2.25f) * DEG_TO_RAD;
-    //Serial.print(F("leeway degrés : ")); Serial.println(leeway * RAD_TO_DEG);
 
     // TWS
     mus.wind.tws = sqrt(mus.speedo.bsp * mus.speedo.bsp + mus.wind.aws * mus.wind.aws - 2.0f *
                         mus.speedo.bsp * mus.wind.aws * cos(mus.wind.r_awa_cor + leeway));
-    //Serial.print(F("mus.wind.aws : ")); Serial.println(mus.wind.aws);
-    //Serial.print(F("mus.wind.tws : ")); Serial.println(mus.wind.tws);
-    //Serial.print(F("mus.wind.r_awa_cor degrés : ")); Serial.println(mus.wind.r_awa_cor * RAD_TO_DEG);
 
     // TWA
     mus.wind.r_twa = mus.wind.r_awa_cor + leeway + acos((mus.wind.aws * mus.wind.aws + mus.wind.tws *
                 mus.wind.tws - mus.speedo.bsp * mus.speedo.bsp) / (2.0f * mus.wind.tws * mus.wind.aws));
     if (isnan(mus.wind.r_twa)) mus.wind.r_twa = 0.001f;
-    //Serial.print(F("mus.wind.r_twa degrés : ")); Serial.println(mus.wind.r_twa * RAD_TO_DEG);
     mus.wind.d_twa = mus.wind.r_twa * RAD_TO_DEG;
 
     // TWA_REL
@@ -265,7 +274,6 @@ void bsp_tw_vmg() {
     // VMG
     mus.speedo.vmg = mus.speedo.bsp * cos(mus.wind.r_twa);
     if (mus.speedo.vmg < 0.0f) mus.speedo.vmg = -mus.speedo.vmg;
-    //Serial.print(F("mus.speedo.vmg : ")); Serial.println(mus.speedo.vmg);
 
     sprintf(nmeaOut, "$IIMWV,%i,T,%s,N,A", (int)round(mus.wind.d_twa_rel), d2s(mus.wind.tws, 4, 2));
     send_nmea(add_checksum(nmeaOut));
@@ -329,23 +337,22 @@ void set_drift() {
   double raw_cog = 0.0f;
   double raw_drift = 0.0f;
 
-  raw_sog = tgps.speed.knots();
-  /////////////////////////////////////////////////////////////////////
-  //raw_sog = mus.speedo.bsp + 0.5f;
-  /////////////////////////////////////////////////////////////////////
-  //Serial.print(F("raw_sog :\t")); Serial.print(raw_sog);
+  #ifdef NO_GPS
+    raw_sog = mus.speedo.bsp + 0.5f;
+  #else
+    raw_sog = tgps.speed.knots();
+  #endif
 
   // Lissage exponentiel simple
   mus.gps.sog = raw_sog * mus.cal.alpha_sogcog + (mus.gps.sog * (1.0 - mus.cal.alpha_sogcog));
   //Serial.print(F("\tmus.gps.sog :\t")); Serial.println(mus.gps.sog);
 
   // COG
-  raw_cog = tgps.course.deg();
-  /////////////////////////////////////////////////////////////////////
-  //raw_cog = mus.imu.d_hdt;
-  /////////////////////////////////////////////////////////////////////
-  //Serial.print(F("mus.imu.d_hdt :\t")); Serial.println(mus.imu.d_hdt);
-  //Serial.print(F("raw_cog :\t")); Serial.print(raw_cog);
+  #ifdef NO_GPS
+    raw_cog = mus.imu.d_hdt;
+  #else
+    raw_cog = tgps.course.deg();
+  #endif
   
   raw_cog *= DEG_TO_RAD;
   mus.gps.r_cog = filtre(Fcog, raw_cog, mus.cal.alpha_sogcog);
@@ -353,25 +360,18 @@ void set_drift() {
   else if (mus.gps.r_cog >= M_PI * 2.0f) mus.gps.r_cog -= M_PI * 2.0f;
 
   mus.gps.d_cog = mus.gps.r_cog * RAD_TO_DEG;
-  //Serial.print(F("\tmus.gps.d_cog :\t")); Serial.println(mus.gps.d_cog);
 
   if (mus.speedo.hasVHW) {
     double vlat = raw_sog * cos(raw_cog) - mus.speedo.bsp * cos(mus.imu.r_hdt);
     double vlong = raw_sog * sin(raw_cog) - mus.speedo.bsp * sin(mus.imu.r_hdt);
-    // Pour test voiture à 41 km/h (22 kn)
-//    double vlat = raw_sog * cos(raw_cog) - 22.0f * cos(mus.imu.r_hdt);
-//    double vlong = raw_sog * sin(raw_cog) - 22.0f * sin(mus.imu.r_hdt);
 
     // Drift
     raw_drift = sqrt(vlong * vlong + vlat * vlat);
-    //Serial.print(F("raw_drift :\t")); Serial.print(raw_drift);
 
     // Lissage exponentiel simple
     mus.gps.drift = raw_drift * mus.cal.alpha_setdrift + (mus.gps.drift * (1.0f - mus.cal.alpha_setdrift));
-    //Serial.print(F("\tmus.gps.drift :\t")); Serial.println(mus.gps.drift);
 
     // Set
-    //Serial.print(F("raw_set :\t")); Serial.print(atan2(vlong, vlat) * RAD_TO_DEG);
     mus.gps.r_set = filtre(Fset, vlong, vlat, mus.cal.alpha_setdrift);
 
     if (mus.gps.r_set < 0.0f) mus.gps.r_set += M_PI * 2.0f;
@@ -425,9 +425,12 @@ void loop() {
   mus.wind.hasVWR = true;
   mus.speedo.hasVHW = true;
 
+  // Réception et traitement des phrases nmea entrantes
   while (RS422.available() > 0) {
     char c = RS422.read();
     tgps.encode(c);
+
+    // Ajout au log des phrases nmea entrantes avec timestamp
     if (readGPS(c, nmeaGPS, sizeof(nmeaGPS)) > 0) {
       strcpy(nmeaLog, timestamp());
       strcat(nmeaLog, nmeaGPS);
@@ -438,7 +441,11 @@ void loop() {
   // 1Hz : Baro, Temp Air, vent, polaire, Set, Drift
   if (tick_1_200 > 1000) {
     tick_1_200 = tick_1_200 - 1000;
-    //if (timeStatus() == timeSet) Serial.println(timestamp());
+
+    #ifdef DEBUG
+      if (timeStatus() == timeSet) Serial.println(timestamp());
+    #endif
+
     if (nmea.bsp.isUpdated()) {
       timeVHW = 0;
       mus.speedo.hasVHW = true;
