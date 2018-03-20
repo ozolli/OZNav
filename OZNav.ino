@@ -59,7 +59,7 @@ char nmeaLog[200] = "";
 elapsedMillis tick_100 = 0;
 elapsedMillis tick_5 = 0;
 elapsedMillis tick_1_200 = 200;
-//elapsedMillis tick_1_400 = 400; Bloque le croquis... :(
+elapsedMillis tick_1_400 = 400;
 elapsedMillis tick_1_600 = 600;
 elapsedMillis tick_1_800 = 800;
 elapsedMillis tick_1_1000 = 0;
@@ -438,26 +438,26 @@ void loop() {
   // 1Hz : Baro, Temp Air, vent, polaire, Set, Drift
   if (tick_1_200 > 1000) {
     tick_1_200 = tick_1_200 - 1000;
-    if (timeStatus() == timeSet) Serial.println(timestamp());
+    //if (timeStatus() == timeSet) Serial.println(timestamp());
     if (nmea.bsp.isUpdated()) {
       timeVHW = 0;
       mus.speedo.hasVHW = true;
       bsp_tw_vmg();
-      if (mus.wind.hasVWR) polar_perf();
     }
 
     // Ces 3 appels à supprimer quand les tests seront finis
     bsp_tw_vmg();
-    polar_perf();
   }
   
-// Pour une raison inconnue le croquis se bloque quand on active tick_1_400
-//  if (tick_1_400 > 1000) {
-//    tick_1_400 = tick_1_400 - 1000;
-//    if (nmea.bsp.isUpdated()) {
-//      if (mus.wind.hasVWR) polar_perf();
-//    }
-//  }
+  if (tick_1_400 > 1000) {
+    tick_1_400 = tick_1_400 - 1000;
+    if (nmea.bsp.isUpdated()) {
+      if (mus.wind.hasVWR) polar_perf();
+    }
+
+    // Ces 3 appels à supprimer quand les tests seront finis
+    polar_perf();
+  }
   
   if (tick_1_600 > 1000) {
     tick_1_600 = tick_1_600 - 1000;
