@@ -8,9 +8,10 @@ SdFile logfile;
 char logfileName[21] = "";
 unsigned long offset = 0;
 boolean logfileNameSet = false;
+boolean sdCardReady = false;
 
 void sdcard_init() {
-  SD.begin(4, SD_SCK_MHZ(50));
+  if (SD.begin(4, SD_SCK_MHZ(50))) sdCardReady = true;
 }
 
 // Implémentation dtostrf pour Cortex M0
@@ -88,7 +89,7 @@ char *timestamp() {
 }
 
 void add_to_log(char *nmea) {
-  if (logfileNameSet) {
+  if (logfileNameSet && sdCardReady) {
     logfile.open(logfileName, FILE_WRITE);
     logfile.write(nmea);
     logfile.println();
@@ -134,7 +135,6 @@ char *filename() {
   static char FName[21];
   sprintf(FName,"%04u%02u%02u-%02u%02u%02uZ.txt", year(), month(), \
                     day(), hour(), minute(), second());
-  logfileNameSet = true;
   return FName; 
 }
 
@@ -157,7 +157,10 @@ void time_GPS(TinyGPSPlus tgps) {
     SdFile::dateTimeCallback(dateTime);
 
     // Crée le nom du logfile
-    if(!logfileNameSet) strcpy(logfileName, filename());
+    if (!logfileNameSet) {
+      strcpy(logfileName, filename());
+      logfileNameSet = true;
+    }
   }
 }
 
