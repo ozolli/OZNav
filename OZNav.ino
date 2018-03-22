@@ -101,10 +101,10 @@ void setup(void) {
   nmea.bsp.begin(tgps, "IIVHW", 5);
 
   #ifdef DEBUG
-    Serial.begin(38400);
+    Serial.begin(115200);
   #endif
 
-  RS422.begin(38400);
+  RS422.begin(115200);
   sdcard_init();
   imu_init();
   baro_init();
@@ -122,6 +122,7 @@ void hdg_heel_pitch() {
   int hdtr = (int)round(mus.imu.d_hdt);
   if (hdtr == 360) hdtr = 0;
 
+  // Dans le fichier log à 1Hz seulement
   if (tick_1_acc > 1000) {
     tick_1_acc = tick_1_acc - 1000;
     log_it = true;
@@ -428,27 +429,24 @@ void loop() {
   mus.wind.hasVWR = true;
   mus.speedo.hasVHW = true;
 
-  // Réception et traitement des phrases nmea entrantes
+  // Réception des phrases nmea entrantes
   while (RS422.available() > 0) {
     char c = RS422.read();
-    tgps.encode(c);
 
-    // Ajout au log des phrases nmea entrantes avec timestamp
+    // Ajout au log avec timestamp et calcul du top horaire
     if (readGPS(c, nmeaGPS, sizeof(nmeaGPS)) > 0) {
       strcpy(nmeaLog, timestamp());
       strcat(nmeaLog, nmeaGPS);
       add_to_log(nmeaLog);
     }
+
+    // Traitement 
+    tgps.encode(c);
   }
 
   // 1Hz : Baro, Temp Air, vent, polaire, Set, Drift
   if (tick_1_200 > 1000) {
     tick_1_200 = tick_1_200 - 1000;
-
-    #ifdef DEBUG
-      if (timeStatus() == timeSet) Serial.println(timestamp());
-    #endif
-
     if (nmea.bsp.isUpdated()) {
       timeVHW = 0;
       mus.speedo.hasVHW = true;

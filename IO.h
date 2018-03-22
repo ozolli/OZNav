@@ -83,7 +83,9 @@ char *timestamp() {
   // 2018-02-21T15:41:24.241Z<espace>
   
   static char TStamp[30];
-  sprintf(TStamp,"%04u-%02u-%02uT%02u:%02u:%02u.%03luZ ", year(),month(),day(),hour(),minute(),second(),(millis() - offset) % 1000);
+  sprintf(TStamp,"%04u-%02u-%02uT%02u:%02u:%02u.%03luZ ",
+          year(),month(),day(),hour(),minute(),second(),
+          (millis() - offset) % 1000);
   return TStamp; 
 }
 
@@ -94,6 +96,10 @@ void add_to_log(char *nmea) {
     logfile.println();
     logfile.close();
   }
+#ifdef DEBUG
+  Serial.write(nmea);
+  Serial.println();
+#endif
 }
 
 char *add_checksum(char *nmea) {
@@ -111,10 +117,7 @@ char *add_checksum(char *nmea) {
 void send_nmea(char *nmea) {
   // Envoi phrase vers port série RS485.
 
-#ifdef DEBUG
-  Serial.write(nmea);
-  Serial.println();
-#else
+#ifndef DEBUG
   RS422.write(nmea);
   RS422.println();
 #endif
@@ -126,8 +129,6 @@ void send_poztx(char *s) {
   
   char nmeaOut[80];
   sprintf(nmeaOut, "$POZTX,%s", s);
-  //strcpy(temps, s);
-  //strcat(nmeaOut, temps);
   send_nmea(add_checksum(nmeaOut));
 }
 
@@ -170,7 +171,7 @@ void time_GPS(TinyGPSPlus tgps) {
     byte Day = (byte)tgps.date.day();
     byte Hour = (byte)tgps.time.hour();
     byte Minute = (byte)tgps.time.minute();
-    byte Second = (byte)tgps.time.second();
+    byte Second = (byte)tgps.time.second() + 1;
 
     offset = millis();
     setTime(Hour, Minute, Second, Day, Month, Year);

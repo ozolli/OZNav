@@ -50,15 +50,7 @@ void imu_init() {
   }
 }
 
-#ifdef DEBUG
-  int count = 0;
-#endif
-
 void imu_query(Boat& mus) {
-
-#ifdef DEBUG
-  count++;
-#endif
 
   //sensors_event_t gyro_event;
   sensors_event_t aevt;
@@ -121,7 +113,4 @@ void imu_query(Boat& mus) {
   if (mus.imu.d_hdt < 0.0f) mus.imu.d_hdt += 360.0f;
   else if (mus.imu.d_hdt >= 360.0f) mus.imu.d_hdt -= 360.0f;
   mus.imu.r_hdt = mus.imu.d_hdt * DEG_TO_RAD;
-#ifdef DEBUG
-  if (count == 6000) Serial.println("######################### 1 mn #######################");
-#endif
 }
